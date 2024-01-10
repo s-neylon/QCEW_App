@@ -1,0 +1,880 @@
+---
+title: "QCEW Import"
+author: "Sam Neylon"
+date: '2022-07-19'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+library(fs)
+library(stringr)
+
+```
+
+# Import Notes
+
+Downloaded By Area files for every year available (2021-1990) from: https://www.bls.gov/cew/downloadable-data-files.htm
+
+I unzipped files and put them on my local machine.
+
+Script below will:
+
+* Find designated MSA files on local machine
+* Load files into memory
+* Clean files
+* Save them as .csv in project folder
+
+Questions:
+
+* How much data cleaning should I do before saving?
+  * Should I create the variables I need?
+  * I can also save .csv of very raw data, then re-load, and create cleaner versions?
+
+Sample: 2020.annual C4186 San Francisco-Oakland-Hayward, CA MSA.csv
+
+"D:/QCEW/by_area/2020_annual_by_area/2020.annual.by_area"
+
+# Import
+
+## Steps
+
+1. Import List of Counties
+
+Create excel file with FIPS column (okay if there are other columns) with the county codes you want. Column needs to be called "FIPS"
+
+2. FIPS List
+
+Take the imported county dataframe, split off the FIPS column, then turn it into a *list* with each FIPS code as a separate list entry.
+
+This is important, as this is the list which will guide the map() procedures.
+
+3. get_dir function
+
+Save a function (get_dir()), which uses the 'fs' package to get a list of file locations.
+
+The fs package (the command dir_ls()) is great, because it allows me to: 
+
+  * Search for files by name, regexp = "search term", as a regular expression. Or glob = "*C4186*" for global search expression.
+  * Search throughout the whole directory. By marking "recurse=TRUE", it will search within all folders at the "path=" I set.
+  * Get results in the form of a fs_path object. This object, which is a list of the paths to all the files my search finds, can be fed into another map function, which reads all the files at those locations, and appends them together!
+  
+My get_dir() function just allows me to use map() to search for a list of FIPS codes. I was trying to do this with a for loop, and map is much better!
+
+***
+  *IMPORTANT NOTE* 
+The way I have the search now, it looks for the FIPS code in the title of the file. This is nice, because it finds the file for every year. However, it takes up a lot of memory to get every year. Unfortunately, it will be much more difficult to have dir_ls() find the FIPS *and* the year. What I did as a hack was to put the QCEW files for 2007-2021 (the years after the switch from NAICS 2002) in a separate folder, and then added this folder to the file path in the get_dir() function.
+
+The code for grabbing all years is at the bottom of this markdown file.
+***
+
+4. map(get_dir)
+
+This map function takes the list (which is a saved list of FIPS codes), and feeds each FIPS in turn into the get_dir function, which returns a list of file paths, which map() then stores in a list!
+
+Previously, I thought I needed to save the file paths outside of the get_dir function, and you can see the (commented) code for that, in case you want to use it for something else. However, map() does a good job of organizing the file path list for the next step.
+
+5. county_map
+
+This second function is so I can use the excellent map_df() with the fs file path data.
+
+The county_map() function takes a list of fs filepaths, and does a read_csv() on each file it finds with each path. I was having parsing issues, so I explicitly name the classes of each column within this function.
+
+What is great is that map_df() create a nice, single dataframe using this list of file paths. However, since I want to use this *within* another map(), it was best to give it its own function.
+
+6. map(county_map)
+
+Now, I take the list of file paths (one list item for each FIPS code), and run county_map() on each one, using a map() function.
+
+This transforms my list of file paths into a list of CSV's! One for each FIPS code, using all the years (see Note above) available.
+
+7. rbind
+
+I then bind_rows for all the csv's in the list, giving me one giant csv for all the FIPS codes!
+
+## NYC MSA Example
+
+### Functions
+
+First, save the get_dir and county_map functions.
+
+```{r eval=T}
+
+# Assemble File Names
+  # I have commented out a thing which saved each filepath file outside the function, but it may be useful for future projects.
+
+get_dir <- function(fips){
+  df <- dir_ls(path = "D:/QCEW/by_area/2007_2021", regexp = fips, recurse = TRUE)
+  #assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+# read_csv using file names
+
+county_map <- function(fs_list){
+  map_df(fs_list, read_csv, col_types = cols(
+  area_fips = col_character(),
+  own_code = col_double(),
+  industry_code = col_character(),
+  agglvl_code = col_double(),
+  size_code = col_double(),
+  year = col_double(),
+  qtr = col_character(),
+  disclosure_code = col_character(),
+  area_title = col_character(),
+  own_title = col_character(),
+  industry_title = col_character(),
+  agglvl_title = col_character(),
+  size_title = col_character(),
+  annual_avg_estabs_count = col_double(),
+  annual_avg_emplvl = col_double(),
+  total_annual_wages = col_double(),
+  taxable_annual_wages = col_double(),
+  annual_contributions = col_double(),
+  annual_avg_wkly_wage = col_double(),
+  avg_annual_pay = col_double(),
+  lq_disclosure_code = col_character(),
+  lq_annual_avg_estabs_count = col_double(),
+  lq_annual_avg_emplvl = col_double(),
+  lq_total_annual_wages = col_double(),
+  lq_taxable_annual_wages = col_double(),
+  lq_annual_contributions = col_double(),
+  lq_annual_avg_wkly_wage = col_double(),
+  lq_avg_annual_pay = col_double(),
+  oty_disclosure_code = col_character(),
+  oty_annual_avg_estabs_count_chg = col_double(),
+  oty_annual_avg_estabs_count_pct_chg = col_double(),
+  oty_annual_avg_emplvl_chg = col_double(),
+  oty_annual_avg_emplvl_pct_chg = col_double(),
+  oty_total_annual_wages_chg = col_double(),
+  oty_total_annual_wages_pct_chg = col_double(),
+  oty_taxable_annual_wages_chg = col_double(),
+  oty_taxable_annual_wages_pct_chg = col_double(),
+  oty_annual_contributions_chg = col_double(),
+  oty_annual_contributions_pct_chg = col_double(),
+  oty_annual_avg_wkly_wage_chg = col_double(),
+  oty_annual_avg_wkly_wage_pct_chg = col_double(),
+  oty_avg_annual_pay_chg = col_double(),
+  oty_avg_annual_pay_pct_chg = col_double())
+)
+}
+
+```
+
+### Import List of Counties
+
+Then, import list of FIPS that you want. You can direct the read_csv to a .csv of your choosing, just make sure the first column is made up of FIPS.
+
+```{r eval=F}
+
+# Import List of Counties
+
+NYC_fips <- read_csv(here("data/FIPS_filter.csv"))
+
+# Select only FIPS column
+
+NYC_fips <- NYC_fips %>% select(FIPS)
+
+# Turn this vector into a list with a separate item for each row.
+
+list_fips <- split(NYC_fips,seq(nrow(NYC_fips))) 
+
+```
+
+### Pull Data
+
+```{r eval=F}
+
+# Get file paths using get_dir(), mapped over list of FIPS
+
+fips_dirs <- map(list_fips, get_dir)
+
+# Turn filepaths into dataframes, mapping county_map over list of file paths, which takes file paths and feeds them into read_csv
+
+county_df <- map(fips_dirs, county_map)
+
+# Do a simple bind_rows to turn your list (a list of dataframes) into one large data frame
+
+NYC_MSA <- map_dfr(county_df, bind_rows)
+
+# Remove the county_csv file, which will be as large as your dataframe, unless you still want to access the individual dataframes.
+
+rm(county_df)
+
+```
+
+### Pulling from list
+
+Code in case you want to pull a single df from a list of them:
+
+```{r eval=F}
+
+# Random example FIPS codes
+
+csv_42103 <- county_df[[1]]
+csv_36119 <- county_df[[2]]
+
+```
+
+
+## By MSA (single search term)
+
+Getting one MSA from the QCEW data is, comparably, much easier!
+
+I can simply search for the MSA code (starting with a "C" in the QCEW system), and put it into the search function of dir_ls().
+
+I could use the code above to do a series of MSA's, if we want to put multiple MSA's in the same dataframe.
+
+The code below is tailored for San Francisco, and will grab all years 2007-2021.
+
+```{r eval=F}
+
+# San Francisco MSA
+
+sf.files <- dir_ls(path = "D:/QCEW/by_area/2007_2021", regexp = "C4186", recurse = TRUE)
+
+sf.df <- sf.files %>% map_df(read_csv)
+
+```
+
+## Choose your FIPS!
+
+I have a .csv with all county FIPS (it is from the MSA_comparison excel file, I just saved the "Comparison" sheet as a .csv).
+
+We can use this to get the list of FIPS counties for states, MSA's, whichever!
+
+### Import
+
+```{r eval=T}
+
+all_fips <- read_csv(here("data/FIPS_all_counties.csv"))
+
+all_fips <- all_fips %>% mutate(fips = ifelse(str_length(FIPS)==4, str_c("0",FIPS), FIPS))
+
+```
+
+### Filter State
+
+California example.
+
+```{r eval=F}
+
+# State FIPS Code
+
+CA_fips <- all_fips %>% filter(State_FIPS == "06")
+
+# Also works with text
+
+CALI_fips <- all_fips %>% filter(State == "California")
+
+```
+
+### Filter MSA
+
+C4186 San Francisco-Oakland-Hayward
+
+```{r eval=F}
+
+# QCEW MSA Code
+
+SF_fips <- all_fips %>% filter(`QCEW MSA Code` == "C4186")
+
+# Title
+  # NOTE: MUST BE EXACT TITLE
+  # I can write code to find approximate title later...
+
+sanFran_fips <- all_fips %>% filter(`QCEW MSA`== "San Francisco-Oakland-Hayward, CA")
+
+```
+
+### Into List
+
+Turn FIPS file into list, for use in import functions.
+
+```{r eval=F}
+
+# Select FIPS Column
+
+SF_fips <- SF_fips %>% select(FIPS)
+
+# Turn this vector into a list with a separate item for each row.
+
+SF_fips <- split(SF_fips,seq(nrow(SF_fips))) 
+
+```
+
+
+## By Year
+
+Haven't figured out how to get this to work...
+
+### Function
+
+```{r eval=T}
+
+get_dir_year <- function(fips, year_string){
+  df <- dir_ls(path = year_string, regexp = fips, recurse = TRUE)
+  #assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+```
+
+### Filter and List
+
+California example.
+
+```{r eval=F}
+
+# State FIPS Code
+
+CA_fips <- all_fips %>% filter(State_FIPS == "06")
+
+# Select FIPS Column
+
+list_fips <- CA_fips %>% select(FIPS)
+
+# Turn this vector into a list with a separate item for each row.
+
+list_fips <- split(list_fips,seq(nrow(list_fips))) 
+
+```
+
+### Pull Data
+
+```{r eval=F}
+
+# Pick year
+
+QCEWyear <- "2020"
+
+import_year <- str_c("D:/QCEW/by_area/2007_2021/", QCEWyear, "_annual_by_area")
+
+# Get file paths using get_dir(), mapped over list of FIPS
+
+fips_dirs <- map(list_fips, get_dir_year, year = import_year)
+
+# Turn filepaths into dataframes, mapping county_map over list of file paths, which takes file paths and feeds them into read_csv
+
+county_df <- map(fips_dirs, county_map)
+
+# Do a simple bind_rows to turn your list (a list of dataframes) into one large data frame
+
+CA_state <- map_dfr(county_df, bind_rows)
+
+# Remove the county_csv file, which will be as large as your dataframe, unless you still want to access the individual dataframes.
+
+rm(county_df)
+
+```
+
+
+# MASTER FUNCTION
+
+```{r eval=T}
+
+# By FIPS
+
+qcew_FIPS <- function(fips_list){
+  # Get file paths using get_dir(), mapped over list of FIPS
+  fips_dirs <- map(fips_list, get_dir)
+  # Turn filepaths into dataframes, mapping county_map over list of file paths, which takes file paths and feeds them into read_csv
+  county_df <- map(fips_dirs, county_map)
+  # Do a simple bind_rows to turn your list (a list of dataframes) into one large data frame
+  df <- map_dfr(county_df, bind_rows)
+}
+
+
+```
+
+## Testing!
+
+```{r eval=F}
+
+SF_MSA <- qcew_FIPS(SF_fips)
+
+```
+
+# Master Function by Year!
+
+```{r eval=T}
+
+qcew_FIPS_year <- function(fips_list, qcew_year){
+  k <- str_c("D:/QCEW/by_area/2007_2021/", qcew_year, "_annual_by_area/")
+  # Get file paths using get_dir(), mapped over list of FIPS
+  fips_dirs <- map(fips_list, ~ get_dir_year(.x, year_string = k))
+  # Turn filepaths into dataframes, mapping county_map over list of file paths, which takes file paths and feeds them into read_csv
+  county_df <- map(fips_dirs, county_map)
+  # Do a simple bind_rows to turn your list (a list of dataframes) into one large data frame
+  df <- map_dfr(county_df, bind_rows)
+}
+
+```
+
+## Testing!
+
+```{r eval = F}
+
+SF_2020 <- qcew_FIPS_year(fips_list = SF_fips, qcew_year = "2020")
+
+```
+
+# MASTER BLASTER
+
+```{r eval=F}
+
+years_list <- list("2020","2019","2018")
+
+SF_2020_18 <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = list_sf))
+
+SF_2020_18_df <- map_dfr(SF_2020_18, bind_rows)
+
+```
+
+
+# Into List Function
+
+```{r eval=T}
+
+into_fipsList <- function(code_list){
+  # Select FIPS Column
+  df <- code_list %>% select(fips)
+  # Turn this vector into a list with a separate item for each row.
+  list_data <- split(df,seq(nrow(df)))  
+}
+
+
+```
+
+## Example into list
+
+```{r eval=F}
+
+list_sf <- into_fipsList(SF_fips)
+
+```
+
+
+
+## All Years Function
+
+```{r eval=F}
+
+get_dir <- function(fips){
+  df <- dir_ls(path = "D:/QCEW/by_area", regexp = fips, recurse = TRUE)
+  assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+```
+
+# Data Clean
+
+## NAICS levels
+
+if_else(str_detect("-")), 2
+
+```{r eval=F}
+
+# NAICS Levels
+
+sf_Data <- SF_MSAdf %>% 
+  mutate(NAICS_lvl = if_else((str_length(industry_code)==2), 2, 
+                                     if_else((str_length(industry_code)==3), 3, 
+                                             if_else((str_length(industry_code)==4), 4, 
+                                                     if_else((str_length(industry_code)==5), 5, 6))))) %>% 
+  mutate(NAICS_lvl = ifelse((str_detect(industry_code, "-")), 2, industry_code),
+         dash_code = ifelse((str_detect(industry_code, "-")), 1, 0))
+
+# NAICS substring
+
+sf_Data <- sf_Data %>% mutate(NAICS_1 = str_sub(industry_code, 1, 1),
+                              NAICS_2 = str_sub(industry_code, 1, 2),
+                              NAICS_3 = ifelse(NAICS_lvl>=3, str_sub(industry_code, 1, 3), NA_character_)) %>% 
+  mutate(NAICS_2 = ifelse(dash_code==1, industry_code, NAICS_2),
+         NAICS_3 = ifelse(dash_code==1, NA_character_, NAICS_3))
+
+sf_Data <- sf_Data %>% relocate(c("NAICS_lvl","NAICS_1","NAICS_2","NAICS_3"), .after = industry_code)
+
+```
+
+## Cleaning Function
+
+```{r eval=T}
+
+NAICS_clean <- function(df){
+df <- df %>% 
+  mutate(NAICS_lvl = if_else((str_length(industry_code)==2), 2, 
+                                     if_else((str_length(industry_code)==3), 3, 
+                                             if_else((str_length(industry_code)==4), 4, 
+                                                     if_else((str_length(industry_code)==5), 5, 6))))) %>% 
+  mutate(NAICS_lvl = ifelse((str_detect(industry_code, "-")), 2, NAICS_lvl),
+         dash_code = ifelse((str_detect(industry_code, "-")), 1, 0))
+
+# NAICS substring
+
+df <- df %>% mutate(NAICS_1 = str_sub(industry_code, 1, 1),
+                              NAICS_2 = str_sub(industry_code, 1, 2),
+                              NAICS_3 = ifelse(NAICS_lvl>=3, str_sub(industry_code, 1, 3), NA_character_)) %>% 
+  mutate(NAICS_2 = ifelse(dash_code==1, industry_code, NAICS_2),
+         NAICS_3 = ifelse(dash_code==1, NA_character_, NAICS_3))
+
+df <- df %>% relocate(c("NAICS_lvl","NAICS_1","NAICS_2","NAICS_3"), .after = industry_code)
+}
+
+```
+
+## Testing!
+
+```{r eval=F}
+
+sf_data_func <- NAICS_clean(SF_2020_18_df)
+
+```
+
+
+
+# Comparing MSAs with Counties
+
+## MSAs: Import, Clean, Summarize
+
+### SF MSA
+
+#### Import
+
+```{r eval=F}
+
+years_list <- list("2020")
+
+SF_MSAfips <- list("C4186")
+
+SF_MSAdf <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = SF_MSAfips))
+
+SF_MSAdf <- map_dfr(SF_MSAdf, bind_rows)
+
+rm(SF_MSAfips)
+
+```
+
+#### Clean
+
+```{r eval=F}
+
+SF_MSAdf <- NAICS_clean(SF_MSAdf)
+
+```
+
+#### Summarize
+
+*NAICS List*
+
+Quick and Dirty
+
+```{r eval=F}
+
+NAICS_titles <- SF_MSAdf %>% select(industry_code, industry_title)
+
+```
+
+```{r eval=F}
+
+SF_MSA_sum <- SF_MSAdf %>% 
+  filter(own_code == 5,
+         NAICS_lvl == 6) %>% 
+  group_by(industry_code) %>% 
+  summarise(ind_ests = sum(annual_avg_estabs_count),
+            ind_emp = sum(annual_avg_emplvl))
+SF_MSA_sum <- SF_MSA_sum %>% left_join(NAICS_titles, by = "industry_code") %>% 
+  relocate(industry_title)
+
+```
+
+## Counties: Import, Clean, Summarize
+
+### SF
+
+#### Filter Counties
+
+C4186 San Francisco-Oakland-Hayward
+
+```{r eval=F}
+
+# QCEW MSA Code
+
+SF_fips <- all_fips %>% filter(`QCEW MSA Code` == "C4186")
+
+SF_fips <- into_fipsList(SF_fips)
+
+```
+
+#### Import
+
+```{r eval=F}
+
+years_list <- list("2020")
+
+SF_df <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = SF_fips))
+
+SF_df <- map_dfr(SF_df, bind_rows)
+
+rm(SF_fips)
+
+```
+
+#### Clean
+
+```{r eval=F}
+
+SF_df <- NAICS_clean(SF_df)
+
+```
+
+#### Summarize
+
+```{r eval=F}
+
+SF_sum <- SF_df %>% 
+  filter(own_code == 5,
+         NAICS_lvl == 6) %>% 
+  group_by(industry_code) %>% 
+  summarise(ind_ests = sum(annual_avg_estabs_count),
+            ind_emp = sum(annual_avg_emplvl))
+SF_sum <- SF_sum %>% left_join(NAICS_titles, by = "industry_code") %>% 
+  relocate(industry_title)
+
+```
+
+#### MSA Equivalent
+
+```{r eval=F}
+
+
+
+```
+
+
+### BOS
+
+#### Filter Counties
+
+C1446 Boston-Cambridge-Newton, MA-NH
+
+```{r eval=FALSE}
+
+BOS_fips <- all_fips %>% filter(`QCEW MSA Code` == "C1446")
+
+BOS_fips <- into_fipsList(BOS_fips)
+
+```
+
+#### Import
+
+```{r eval=F}
+
+years_list <- list("2020")
+
+BOS_df <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = BOS_fips))
+
+BOS_df <- map_dfr(BOS_df, bind_rows)
+
+rm(BOS_fips)
+
+```
+
+#### Clean
+
+```{r eval=F}
+
+BOS_df <- NAICS_clean(BOS_df)
+
+```
+
+#### Summarize
+
+```{r eval=F}
+
+BOS_df <- BOS_df %>% 
+  filter(own_code == 5,
+         NAICS_lvl == 6) %>% 
+  group_by(industry_code) %>% 
+  summarise(ind_ests = sum(annual_avg_estabs_count),
+            ind_emp = sum(annual_avg_emplvl))
+
+```
+
+### NYC
+
+#### Filter Counties
+
+C3562 New York-Newark-Jersey City, NY-NJ-PA
+
+```{r eval=FALSE}
+
+NYC_fips <- all_fips %>% filter(`QCEW MSA Code` == "C3562")
+
+NYC_fips <- into_fipsList(NYC_fips)
+
+```
+
+#### Import
+
+```{r eval=F}
+
+years_list <- list("2020")
+
+NYC_df <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = NYC_fips))
+
+NYC_df <- map_dfr(NYC_df, bind_rows)
+
+rm(NYC_fips)
+
+```
+
+#### Clean
+
+```{r eval=F}
+
+NYC_df <- NAICS_clean(NYC_df)
+
+```
+
+#### Summarize
+
+```{r eval=F}
+
+NYC_df <- NYC_df %>% 
+  filter(own_code == 5,
+         NAICS_lvl == 6) %>% 
+  group_by(industry_code) %>% 
+  summarise(ind_ests = sum(annual_avg_estabs_count),
+            ind_emp = sum(annual_avg_emplvl))
+
+```
+
+## Merge
+
+### SF
+
+#### Merge
+
+```{r eval=F}
+
+SF_comp <- full_join(SF_MSA_sum, SF_sum, by = "industry_code") %>% 
+  mutate(MSA_ests = ind_ests.x,
+         MSA_emp = ind_emp.x,
+         C_ests = ind_ests.y,
+         C_emp = ind_emp.y) %>% 
+  select(industry_title.x, industry_code, MSA_ests, MSA_emp, C_ests, C_emp) %>% 
+  mutate(MSA_C_ests = MSA_ests - C_ests,
+         MSA_C_emp = MSA_emp - C_emp,
+         NAICS_1 = str_sub(industry_code, 1, 1),
+         NAICS_2 = str_sub(industry_code, 1, 2),
+         NAICS_3 = str_sub(industry_code, 1, 3),
+         NAICS_4 = str_sub(industry_code, 1, 4),
+         NAICS_5 = str_sub(industry_code, 1, 5))
+
+```
+
+## Over Time
+
+### SF MSA
+
+#### Import
+
+```{r eval=F}
+
+# Sequence from 2007-2021
+
+years_list <- as.list(seq(2007, 2021, by = 1))
+
+# By MSA
+
+SF_MSAfips <- list("C4186")
+
+SF_MSAdf_07_21 <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = SF_MSAfips))
+
+SF_MSAdf_07_21 <- map_dfr(SF_MSAdf_07_21, bind_rows)
+
+rm(SF_MSAfips)
+
+```
+
+#### Clean
+
+```{r eval=F}
+
+SF_MSAdf_07_21 <- NAICS_clean(SF_MSAdf_07_21)
+
+```
+
+#### Year NAICS
+
+```{r eval=F}
+
+SF_MSAdf_07_21 <- SF_MSAdf_07_21 %>% 
+  mutate(NAICS_17 = ifelse(year >= 2017, industry_code, NA_character_),
+         NAICS_12 = ifelse(between(year, 2012, 2016), industry_code, NA_character_),
+         NAICS_07 = ifelse(between(year, 2007, 2011), industry_code, NA_character_)) 
+
+#  relocate(c("NAICS_17","NAICS_12","NAICS_07"), .after = industry_code)
+
+```
+
+
+#### Summarize
+
+*NAICS List*
+
+Quick and Dirty
+
+```{r eval=F}
+
+NAICS_titles <- SF_MSAdf_07_21 %>% select(industry_code, industry_title)
+
+```
+
+CURRENTLY NOT WORKING
+
+```{r eval=F}
+
+# NEEDS TO BE FIXED
+
+SF_MSAyrs_sum <- SF_MSAdf_07_21 %>% 
+  filter(own_code == 5,
+         NAICS_lvl == 6) %>% 
+  group_by(industry_code, year) %>% 
+  summarise(ind_ests = sum(annual_avg_estabs_count),
+            ind_emp = sum(annual_avg_emplvl))
+SF_MSAyrs_sum <- SF_MSAyrs_sum %>% left_join(NAICS_titles, by = "industry_code") %>% 
+  relocate(industry_title)
+
+```
+
+
+# Export
+
+## SF Example Export
+
+```{r eval=F}
+
+# Export to look at in excel
+
+# SF Comparison
+
+openxlsx::write.xlsx(SF_comp, here("output/SF_comp.xlsx"))
+
+# SF MSA
+
+openxlsx::write.xlsx(SF_MSAdf, here("output/SF_MSA_2020.xlsx"))
+
+# SF MSA Counties
+
+openxlsx::write.xlsx(SF_df, here("output/SF_Counties_2020.xlsx"))
+
+# SF MSA Through Time
+
+openxlsx::write.xlsx(SF_MSAdf_07_21, here("output/SF_MSA_2007-2021.xlsx"))
+
+```
+
+

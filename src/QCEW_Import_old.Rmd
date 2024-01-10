@@ -1,0 +1,337 @@
+---
+title: "QCEW Import"
+author: "Sam Neylon"
+date: '2022-07-19'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+library(fs)
+library(stringr)
+
+```
+
+# Import Notes
+
+Downloaded By Area files for every year available (2021-1990) from: https://www.bls.gov/cew/downloadable-data-files.htm
+
+I unzipped files and put them on my local machine.
+
+Script below will:
+
+* Find designated MSA files on local machine
+* Load files into memory
+* Clean files
+* Save them as .csv in project folder
+
+Questions:
+
+* How much data cleaning should I do before saving?
+  * Should I create the variables I need?
+  * I can also save .csv of very raw data, then re-load, and create cleaner versions?
+
+# Searching for Files
+
+Sample: 2020.annual C4186 San Francisco-Oakland-Hayward, CA MSA.csv
+
+"D:/QCEW/by_area/2020_annual_by_area/2020.annual.by_area"
+
+## By MSA
+
+```{r eval=F}
+
+sf.files <- dir_ls(path = "D:/QCEW/by_area/", glob = "*C4186*", recurse = TRUE)
+
+sf.df <- sf.files %>% map_df(read_csv)
+
+```
+
+## By Year
+
+```{r eval=F}
+
+QCEWyear <- "2020"
+
+```
+
+## For Loop (Didn't Work)
+
+```{r eval=F}
+
+# Create List of Codes
+
+```
+
+
+```{r eval=F}
+
+ldf <- list() # creates a list
+# listcsv <- dir(pattern = "*.csv") # creates the list of all the csv files in the directory
+
+list_fips <- list("42103", "36119")
+ldf <- list()
+
+  patt_test2 <- str_c("\"","*","42103","*","\"")
+  list_test <- dir_ls(path = "D:/QCEW/by_area", glob = patt, recurse = TRUE)
+
+patt_test <- str_c("\"","*","C4186","*","\"")
+
+for (k in names(list_fips)){
+  #patt <- str_c("*",k,"*")
+  list_fips[[k]] <- dir_ls(path = "D:/QCEW/by_area", glob = paste(k), recurse = TRUE)
+  
+  #list_fips[[k]] <- lsfiles %>% map_df(read_csv)
+}
+
+xx.df <- list_fips %>% map_df(read_csv)
+
+str(ldf[[1]]) 
+
+patt_test2 <- str_c("*","42103","*")
+
+xx.files <- dir_ls(path = "D:/QCEW/by_area/", regexp = "42103", recurse = TRUE)
+
+sf.files <- dir_ls(path = "D:/QCEW/by_area/", glob = "*C4186*", recurse = TRUE)
+
+sf.df <- sf.files %>% map_df(read_csv)
+
+```
+
+## Regex
+
+D:/QCEW/by_area/2020_annual_by_area/2020.annual.by_area/2020.annual C4186 San Francisco-Oakland-Hayward, CA MSA.csv
+
+2020_annual_by_area/2020.annual.by_area/2020.annual C4186 San Francisco-Oakland-Hayward, CA MSA.csv
+
+...._annual_by_area/....\\.annual.by_area/....\\.annual C4186 San Francisco-Oakland-Hayward, CA MSA.csv
+
+# Trying a Function
+
+```{r eval=F}
+
+get_dir <- function(fips){
+  df <- dir_ls(path = "D:/QCEW/by_area", regexp = fips, recurse = TRUE)
+  assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+```
+
+```{r eval=F}
+
+get_dir("42103")
+
+```
+
+## Loop the function!
+
+```{r eval=F}
+
+list_fips <- list("42103", "36119")
+
+fips_dirs <- map(list_fips, get_dir)
+
+# Second Function
+
+county_map <- function(fs_list){
+  map_df(fs_list,read_csv)
+}
+
+county_csvs <- map(fips_dirs, county_map)
+
+csv_42103 <- county_csvs[[1]]
+csv_36119 <- county_csvs[[2]]
+
+test_area <- map_dfr(county_csvs, bind_rows)
+
+```
+
+## NYC MSA by FIPS
+
+### Functions
+
+```{r eval=F}
+
+# Assemble File Names
+
+get_dir <- function(fips){
+  df <- dir_ls(path = "D:/QCEW/by_area/2007_2021", regexp = fips, recurse = TRUE)
+  assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+# read_csv using file names
+
+county_map <- function(fs_list){
+  map_df(fs_list, read_csv, col_types = cols(
+  area_fips = col_character(),
+  own_code = col_double(),
+  industry_code = col_character(),
+  agglvl_code = col_double(),
+  size_code = col_double(),
+  year = col_double(),
+  qtr = col_character(),
+  disclosure_code = col_logical(),
+  area_title = col_character(),
+  own_title = col_character(),
+  industry_title = col_character(),
+  agglvl_title = col_character(),
+  size_title = col_character(),
+  annual_avg_estabs_count = col_double(),
+  annual_avg_emplvl = col_double(),
+  total_annual_wages = col_double(),
+  taxable_annual_wages = col_double(),
+  annual_contributions = col_double(),
+  annual_avg_wkly_wage = col_double(),
+  avg_annual_pay = col_double(),
+  lq_disclosure_code = col_character(),
+  lq_annual_avg_estabs_count = col_double(),
+  lq_annual_avg_emplvl = col_double(),
+  lq_total_annual_wages = col_double(),
+  lq_taxable_annual_wages = col_double(),
+  lq_annual_contributions = col_double(),
+  lq_annual_avg_wkly_wage = col_double(),
+  lq_avg_annual_pay = col_double(),
+  oty_disclosure_code = col_character(),
+  oty_annual_avg_estabs_count_chg = col_double(),
+  oty_annual_avg_estabs_count_pct_chg = col_double(),
+  oty_annual_avg_emplvl_chg = col_double(),
+  oty_annual_avg_emplvl_pct_chg = col_double(),
+  oty_total_annual_wages_chg = col_double(),
+  oty_total_annual_wages_pct_chg = col_double(),
+  oty_taxable_annual_wages_chg = col_double(),
+  oty_taxable_annual_wages_pct_chg = col_double(),
+  oty_annual_contributions_chg = col_double(),
+  oty_annual_contributions_pct_chg = col_double(),
+  oty_annual_avg_wkly_wage_chg = col_double(),
+  oty_annual_avg_wkly_wage_pct_chg = col_double(),
+  oty_avg_annual_pay_chg = col_double(),
+  oty_avg_annual_pay_pct_chg = col_double())
+)
+}
+
+```
+
+### Import List of Counties
+
+```{r eval=F}
+
+# Import List of Counties
+
+NYC_fips <- read_csv(here("data/FIPS_filter.csv"))
+
+NYC_fips <- NYC_fips %>% select(FIPS)
+
+```
+
+### Pull Data
+
+```{r eval=F}
+
+list_fips <- split(NYC_fips,seq(nrow(NYC_fips))) 
+
+fips_dirs <- map(list_fips, get_dir)
+
+county_csvs <- map(fips_dirs, county_map)
+
+NYC_MSA <- map_dfr(county_csvs, bind_rows)
+
+rm(county_csvs)
+
+```
+
+## Problems
+
+```{r eval=F}
+
+test_csv <- county_csvs[[1]]
+
+problems(test_csv)
+
+```
+
+
+## Column Spec
+
+```{r eval=F}
+
+cols(
+  area_fips = col_double(),
+  own_code = col_double(),
+  industry_code = col_character(),
+  agglvl_code = col_double(),
+  size_code = col_double(),
+  year = col_double(),
+  qtr = col_character(),
+  disclosure_code = col_logical(),
+  area_title = col_character(),
+  own_title = col_character(),
+  industry_title = col_character(),
+  agglvl_title = col_character(),
+  size_title = col_character(),
+  annual_avg_estabs_count = col_double(),
+  annual_avg_emplvl = col_double(),
+  total_annual_wages = col_double(),
+  taxable_annual_wages = col_double(),
+  annual_contributions = col_double(),
+  annual_avg_wkly_wage = col_double(),
+  avg_annual_pay = col_double(),
+  lq_disclosure_code = col_logical(),
+  lq_annual_avg_estabs_count = col_double(),
+  lq_annual_avg_emplvl = col_double(),
+  lq_total_annual_wages = col_double(),
+  lq_taxable_annual_wages = col_double(),
+  lq_annual_contributions = col_double(),
+  lq_annual_avg_wkly_wage = col_double(),
+  lq_avg_annual_pay = col_double(),
+  oty_disclosure_code = col_character(),
+  oty_annual_avg_estabs_count_chg = col_double(),
+  oty_annual_avg_estabs_count_pct_chg = col_double(),
+  oty_annual_avg_emplvl_chg = col_double(),
+  oty_annual_avg_emplvl_pct_chg = col_double(),
+  oty_total_annual_wages_chg = col_double(),
+  oty_total_annual_wages_pct_chg = col_double(),
+  oty_taxable_annual_wages_chg = col_double(),
+  oty_taxable_annual_wages_pct_chg = col_double(),
+  oty_annual_contributions_chg = col_double(),
+  oty_annual_contributions_pct_chg = col_double(),
+  oty_annual_avg_wkly_wage_chg = col_double(),
+  oty_annual_avg_wkly_wage_pct_chg = col_double(),
+  oty_avg_annual_pay_chg = col_double(),
+  oty_avg_annual_pay_pct_chg = col_double()
+)
+
+```
+
+
+# List of Counties
+
+## Sample
+
+```{r eval=F}
+
+# Import List of Counties
+
+test_fips <- read_csv(here("data/FIPS_filter.csv"))
+
+test_fips <- test_fips %>% select(FIPS)
+
+test_fips
+
+
+
+```
+
+# All Years Function
+
+```{r eval=F}
+
+get_dir <- function(fips){
+  df <- dir_ls(path = "D:/QCEW/by_area", regexp = fips, recurse = TRUE)
+  assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+```
+

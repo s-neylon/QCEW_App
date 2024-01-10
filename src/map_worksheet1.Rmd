@@ -1,0 +1,459 @@
+---
+title: "UWS Mapping 1"
+author: "Sam Neylon"
+date: '2022-07-31'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+library(ggplot2)
+library(sf)
+library(ggmap)
+
+# Google Map API
+
+  # register_google(key = "AIzaSyDya2KamDNbVtK6dGiB3yWIazUIrf5dj5I")
+
+```
+
+
+# Read Map Data
+
+From CSA Comparisons
+
+```{r eval=T}
+
+CSA_map <- st_read(here("maps/CSA_comparison"))
+
+```
+# Boston
+
+## Basemap
+
+### Toner Basemap
+
+See: https://cengel.github.io/R-spatial/mapping.html#adding-basemaps-with-ggmap
+
+Example code:
+
+* Philadelphia Lat 39.95258 and Lon is -75.16522
+
+ph_basemap <- get_map(location=c(lon = -75.16522, lat = 39.95258), zoom=11, maptype = 'terrain-background', source = 'stamen')
+
+CartoDB.Positron
+
+*Boston*
+
+42.348527, -71.110049
+
+```{r eval=F}
+
+BOS_basemap <- get_stamenmap(location=c(lon = -71.110049, lat = 42.348527), zoom=8, maptype = "toner-lite", source = "stamen")
+
+```
+
+### Correct lat long
+
+```{r eval=F}
+
+BOS_basemap <- get_stamenmap(bbox = c(left = -73,
+                                    bottom = 41,
+                                    right = -69,
+                                    top = 43.75), 
+                             maptype = "toner-lite", source = "stamen")
+
+#xlim = c(-73, -69), ylim = c(41, 43.75)
+
+```
+
+### Toner Basemap (correct)
+
+```{r eval=F}
+
+BOS_basemap_toner <- get_stamenmap(bbox = c(left = -73,
+                                    bottom = 41,
+                                    right = -69,
+                                    top = 43.75), 
+                             maptype = "toner", source = "stamen")
+
+#xlim = c(-73, -69), ylim = c(41, 43.75)
+
+```
+
+### Google
+
+```{r eval=F}
+
+BOS_basemap <- get_map(location=c(lon = -71.110049, lat = 42.348527), zoom=8, maptype = "roadmap", source = "google")
+
+```
+
+### Didn't work
+
+```{r eval=F}
+
+BOS_basemap <- get_map(location=c(lon = -71.110049, lat = 42.348527), zoom=8, maptype = "roadmap")
+
+```
+
+## Filter sf
+
+```{r}
+
+BOS_data <- CSA_map %>% filter(QCEW_CSA == "CS148")
+
+```
+
+
+## ggplot
+
+### Example Color Code:
+
+scale_fill_distiller(palette = "YlGn")
+scale_fill_viridis_c(alpha = .4)
+
+From A Dictionary of Color Combinations:
+https://sanzo-wada.dmbk.io/
+scale_fill_gradient(low = "#b3d9a3", high = "#76844E")
+scale_fill_gradient(low = "#e2ece7", high = "#9FC2B2")
+
+### No Basemap
+
+```{r}
+
+BOS_map_EmpPct <- ggplot(BOS_data) +
+  geom_sf(aes(fill = emp_CSAp))+
+  scale_fill_gradient(low = "#d5dac9", high = "#76844E")
+
+BOS_map_EmpPct
+
+```
+
+### Basemap
+
+"#d5dac9"
+
+```{r}
+
+BOS_basemap_EmpPct <- ggmap(BOS_basemap) +
+  geom_sf(data = BOS_data, aes(fill = emp_CSAp), inherit.aes = FALSE, alpha = .4) +
+  scale_fill_gradient(low = "#d5dac9", high = "#76844E") +
+  scale_alpha(.4) + 
+  coord_sf(crs = st_crs(4326))
+
+BOS_basemap_EmpPct
+
+```
+
+#### Export
+
+```{r eval = F}
+
+ggsave("BOS_emp_basemap.png", plot = BOS_basemap_EmpPct)
+
+```
+
+
+# osmdata Map
+
+https://ggplot2tutor.com/tutorials/streetmaps
+http://joshuamccrain.com/tutorials/maps/streets_tutorial.html
+
+https://cran.r-project.org/web/packages/osmdata/vignettes/osmdata.html#1_Introduction
+
+
+## Import Features
+
+WARNING: This is very slow, and creates very big files!
+
+```{r eval=F}
+
+library(osmdata)
+
+streets <- opq(bbox = c(-72.251587,41.323201,-69.955444,43.068888)) %>%
+  add_osm_feature(key = "highway", 
+                  value = c("motorway", "primary", 
+                            "secondary", "tertiary")) %>%
+  osmdata_sf()
+small_streets <- opq(bbox = c(-72.251587,41.323201,-69.955444,43.068888)) %>%
+  add_osm_feature(key = "highway", 
+                  value = c("residential", "living_street",
+                            "unclassified",
+                            "service", "footway")) %>%
+  osmdata_sf()
+
+river <- opq(bbox = c(-72.251587,41.323201,-69.955444,43.068888)) %>%
+  add_osm_feature(key = "waterway", value = "river") %>%
+  osmdata_sf()
+
+```
+
+### Reset Overpass server
+
+This one seems better: https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances
+
+```{r}
+
+new_url <- "https://lz4.overpass-api.de/api/interpreter"
+set_overpass_url(new_url) # reset the base url (not run)
+
+```
+
+### Much less!
+
+xlim = c(-73, -69), ylim = c(41, 43.75)
+
+getbb("Boston")%>%
+
+opq(bbox = c(-73, 41, -69, 43.75))%>%
+
+```{r}
+
+streets <- getbb("Boston")%>%
+  opq() %>%
+  add_osm_feature(key = "highway", 
+                  value = c("motorway")) %>%
+  osmdata_sf()
+
+```
+
+
+## Plot Map
+
+```{r}
+
+ggplot() +
+  geom_sf(data = streets$osm_lines,
+          inherit.aes = FALSE,
+          color = "black",
+          size = .4,
+          alpha = .8) +
+  geom_sf(data = small_streets$osm_lines,
+          inherit.aes = FALSE,
+          color = "black",
+          size = .4,
+          alpha = .6) +
+  geom_sf(data = river$osm_lines,
+          inherit.aes = FALSE,
+          color = "black",
+          size = .2,
+          alpha = .5) +
+  coord_sf(xlim = c(7.77, 7.92), 
+           ylim = c(47.94, 48.06),
+           expand = FALSE) 
+
+```
+
+# Simple Geography
+
+https://r-spatial.org/r/2018/10/25/ggplot2-sf-2.html 
+
+```{r eval=FALSE}
+
+library("rnaturalearth")
+library("rnaturalearthdata")
+library("maps")
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+states <- st_as_sf(map("state", plot = FALSE, fill = TRUE))
+counties <- st_as_sf(map("county", plot = FALSE, fill = TRUE))
+
+```
+
+## NOTE
+
+The "world" object doesn't match up with lines from "maps" package
+
+```{r eval=FALSE}
+
+BOS_simple_EmpPct <- ggplot(data = world) +
+  geom_sf() +
+  geom_sf(data = BOS_data, aes(fill = emp_CSAp), inherit.aes = FALSE, alpha = .4) +
+  geom_sf(data = counties, fill = NA, color = gray(.5)) +
+  geom_sf(data = states, fill = NA) + 
+  scale_fill_gradient(low = "#d5dac9", high = "#76844E") +
+  coord_sf(xlim = c(-73, -69), ylim = c(41, 43.75), expand = FALSE)
+
+BOS_simple_EmpPct
+
+```
+
+# Using Census Shapefiles
+
+```{r eval=F}
+
+library(tidycensus)
+
+counties_df <- get_decennial(geography = "county",
+                       variables = "P001001",
+                       geometry = T,
+                       output = "wide")
+
+```
+
+```{r eval=FALSE}
+
+BOS_census_EstPct <- ggplot(data = counties_df) +
+  geom_sf(fill = "gray", color = gray(.5)) +
+  geom_sf(data = BOS_data, aes(fill = est_CSAp), inherit.aes = FALSE, alpha = .4) +
+  #geom_sf(data = counties, fill = NA, color = gray(.5)) +
+  #geom_sf(data = states, fill = NA) + 
+  scale_fill_gradient(low = "#e2ece7", high = "#9FC2B2") +
+  coord_sf(xlim = c(-73, -69), ylim = c(41, 43.75), expand = FALSE)
+
+BOS_census_EstPct
+
+```
+
+### Logged Employment
+
+I logged employment to try and control for Middlesex County
+
+NOTE: geom_sf(data = BOS_data, aes(fill = *log(lfSc_mp))*, inherit.aes = FALSE, alpha = .4)
+
+```{r eval=FALSE}
+
+BOS_census_emp <- ggplot(data = counties_df) +
+  geom_sf(fill = "gray", color = gray(.5)) +
+  geom_sf(data = BOS_data, aes(fill = log(lfSc_mp)), inherit.aes = FALSE, alpha = .4) +
+  #geom_sf(data = counties, fill = NA, color = gray(.5)) +
+  #geom_sf(data = states, fill = NA) + 
+  scale_fill_gradient(low = "#e2ece7", high = "#4f6159") +
+  geom_sf(data = streets$osm_lines,
+          inherit.aes = FALSE,
+          color = "white",
+          size = .4,
+          alpha = .4) +
+  coord_sf(xlim = c(-73, -69), ylim = c(41, 43.75), expand = FALSE)
+
+BOS_census_emp
+
+```
+
+#### Export
+
+```{r eval = F}
+
+ggsave("BOS_emp_roads.png", plot = BOS_census_emp)
+
+```
+
+
+# Geography Highlighted
+
+## Filter sf
+
+```{r}
+
+BOS_UWS_data <- CSA_map %>% filter(are_fps == "25025" | are_fps == "25017")
+
+BOS_suffolk_data <- CSA_map %>% filter(are_fps == "25025")
+
+BOS_middlesex_data <- CSA_map %>% filter(are_fps == "25017")
+
+```
+
+## Map
+
+```{r eval=FALSE}
+
+BOS_UWS_counties <- ggplot(data = counties_df) +
+  geom_sf(fill = "gray", color = gray(.5)) +
+  geom_sf(data = BOS_suffolk_data, fill = "#9FC2B2", inherit.aes = FALSE, alpha = .8) +
+  geom_sf(data = BOS_middlesex_data, fill = "#e2ece7", inherit.aes = FALSE, alpha = .8) +
+  #geom_sf(data = counties, fill = NA, color = gray(.5)) +
+  #geom_sf(data = states, fill = NA) + 
+  #scale_fill_gradient(low = "#e2ece7", high = "#9FC2B2") +
+  coord_sf(xlim = c(-73, -69), ylim = c(41, 43.75), expand = FALSE) +
+  geom_sf(data = streets$osm_lines,
+          inherit.aes = FALSE,
+          color = "white",
+          size = .4,
+          alpha = .4) +
+  coord_sf(xlim = c(-73, -69), ylim = c(41, 43.75), expand = FALSE)
+
+BOS_UWS_counties
+
+```
+
+#### Export
+
+```{r eval = F}
+
+ggsave("BOS_UWS_roads.png", plot = BOS_UWS_counties)
+
+```
+# Zoomed In
+
+## Roads Map
+
+```{r eval=FALSE}
+
+BOS_UWS_counties_zoom <- ggplot(data = counties_df) +
+  geom_sf(fill = "gray", color = gray(.5)) +
+  geom_sf(data = BOS_suffolk_data, fill = "#9FC2B2", inherit.aes = FALSE, alpha = .8) +
+  geom_sf(data = BOS_middlesex_data, fill = "#e2ece7", inherit.aes = FALSE, alpha = .8) +
+  #geom_sf(data = counties, fill = NA, color = gray(.5)) +
+  #geom_sf(data = states, fill = NA) + 
+  #scale_fill_gradient(low = "#e2ece7", high = "#9FC2B2") +
+  coord_sf(xlim = c(-73, -69), ylim = c(41, 43.75), expand = FALSE) +
+  geom_sf(data = streets$osm_lines,
+          inherit.aes = FALSE,
+          color = "white",
+          size = .4,
+          alpha = .4) +
+  coord_sf(xlim = c(-72, -70), ylim = c(41.5, 43), expand = FALSE)
+
+BOS_UWS_counties_zoom
+
+```
+
+#### Export
+
+```{r eval = F}
+
+ggsave("BOS_UWS_roads_zoom.png", plot = BOS_UWS_counties_zoom)
+
+```
+
+### Basemap
+
+"#d5dac9"
+
+```{r}
+
+BOS_basemap_EmpPct_zoom <- ggmap(BOS_basemap) +
+  geom_sf(data = BOS_suffolk_data, fill = "#9FC2B2", inherit.aes = FALSE, alpha = .4) +
+  geom_sf(data = BOS_middlesex_data, fill = "#e2ece7", inherit.aes = FALSE, alpha = .4) +
+  scale_fill_gradient(low = "#d5dac9", high = "#76844E") +
+  scale_alpha(.4) + 
+  coord_sf(xlim = c(-72, -70.5), ylim = c(42.1, 42.8), expand = FALSE)
+
+BOS_basemap_EmpPct_zoom
+
+```
+
+#### Export
+
+```{r eval = F}
+
+ggsave("BOS_UWS_basemap_zoom.png", plot = BOS_basemap_EmpPct_zoom)
+
+```
+# osm second try
+
+```{r eval = F}
+
+library(osmdata)
+
+streets <- opq(bbox = c(-72.251587,41.323201,-69.955444,43.068888)) %>%
+  add_osm_feature(key = "highway", 
+                  value = c("motorway")) %>%
+  osmdata_sf()
+
+```
+

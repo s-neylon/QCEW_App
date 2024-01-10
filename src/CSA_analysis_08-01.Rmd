@@ -1,0 +1,27 @@
+---
+title: "CSA Analysis 08-01"
+author: "Sam Neylon"
+date: '2022-08-01'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+#library(fs)
+library(stringr)
+
+Sys.sleep(2)
+
+```
+
+# Load CSA_comparison .rds
+
+```{r}
+
+CSA_comparison <- readRDS(here("output/"))
+
+```
+

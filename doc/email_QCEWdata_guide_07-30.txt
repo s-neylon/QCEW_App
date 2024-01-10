@@ -1,0 +1,222 @@
+From:	Samuel Neylon
+Sent:	Saturday, July 30, 2022 7:46 PM
+To:	Zheng, You; Jones, Eileen
+Subject:	QCEW Data & Analysis
+
+Hello all,
+
+I have finished a good chunk of the analysis, and wanted to walk through it in this email. 
+
+Below this email, you’ll find a more detailed description of the almost-raw data files which I dropped in 
+the Sharepoint, but in this email I will be describing more processed data and analysis files.
+
+All files can be found in this folder, and I will drop a copy of this email in the folder, as a guide to the 
+data: 
+https://intranet.gc.cuny.edu/centers_institutes/cur/NYCLMIS/Upper%20West%20Strategies/Research/
+QCEW_reports/CSA_comparison
+
+I’ve already detected a few errors and had to re-do some things (all the files in Sharepoint are the latest 
+versions), and we will of course detect more as we dig into the data.
+
+Year, Geography, NAICS
+
+All the files I discuss here use 2021 data, are for all the counties in the CSA’s which contain Boston, SF, 
+and NYC, and use the 6-digit NAICS codes in Eileen’s Life Sciences list. I used CSA’s because they give us 
+the MSA, plus a lot of surrounding counties.
+
+Google Map
+
+I wanted to start by sharing the latest version of my google map, as I think it could be very helpful! 
+
+https://www.google.com/maps/d/edit?mid=1QG8J6tV3qOKqwozDi02vUyuIlEbCx1Y&usp=sharing
+
+I used the file “LifeSci_Sum_Counties.xlsx” as a base for the maps, and I will describe that file more 
+below.
+
+You can turn on or off the following layers, but you can also click on the counties and get more detailed 
+information:
+
+LifeSci Emp as % of CSA: I took the total life sciences employment in all the counties in the CSA, and 
+calculated the percentage of Life Sciences employment in a given county in that CSA, which is color 
+coded on the map.
+
+LifeSci Employment (Absolute): This is just total employment in life sciences industries in that county.
+
+LifeSci Establishments (Absolute): Number of life sciences establishments in that county.
+
+LifeSci Ests as % of CSA: Life sciences establishments in that county, as a percent of all life sciences 
+establishments in that CSA.
+
+Core MSA Borders: This layer simply highlights the counties which are the “core” MSA (The MSA with 
+Boston or SF or NYC in it).
+
+You probably shouldn’t turn on more than one layer at once (it makes the colors weird), but you can 
+turn on the Core MSA Borders, as it is just borders of counties.
+
+Files
+
+https://intranet.gc.cuny.edu/centers_institutes/cur/NYCLMIS/Upper%20West%20Strategies/Research/
+QCEW_reports/CSA_comparison
+
+“LifeSci_Sum_Counties.xlsx”
+
+This file is a list of counties within the 3 CSA’s, with calculated columns based on the CSA or MSA the 
+counties are in.
+
+Key Variables:
+
+lifeSci_ests: Number of life sciences establishments in county.
+lifeSci_emp: Employment in life sciences industries in county.
+emp_CSApct: This is employment in life sciences in that county, as a percentage of all life sciences 
+employment in the whole CSA.
+emp_MSApct: Employment as percentage of the MSA the county is in.
+
+The other columns follow this pattern, with lots of geographic information, so you can filter different 
+ways, and compare MSA’s within CSA’s.
+
+“analysis_LifeSci_Sum_Counties.xlsx”
+
+This is the above file, but I added some analysis and new sheets. There are sheets for each Hub, which 
+are simply the full dataset filtered for that CSA.
+
+NOTE: I added a sheet where I marked down the 5 boroughs of New York City. I probably need to re-do 
+some of the other analyses with this as a category, but for now, you can look at the 5th sheet “NYC + 
+Boroughs” and run analyses there.
+
+“LifeSci_Sum_byIND.xlsx”
+
+This is a longer file, which doesn’t sum all the life sciences industries, but keeps them separate.
+
+Key Variables:
+
+ind_ests: Establishments in that industry in that county.
+ind_emp: Employment in that industry in that county.
+emp_countypct: Employment in that industry in that county as a percentage of all life sciences 
+employment in that county.
+emp_CSApct: Employment in that industry in that county as a percentage of all life sciences employment 
+in that CSA.
+emp_MSApct: Same, but for the MSA.
+
+“analysis_LifeSci_Sum_byIND.xlsx”
+
+Same as the previous file, but with some analyses and sorting and things added by me.
+
+This time, I added some pivot tables, which show the percentage of industry employment in the entire 
+CSA as a percentage of life sciences employment in that CSA.
+
+“LifeSci_Summary.xlsx”
+
+This is a simpler table (no calculated columns), summarizing life sciences employment in the counties in 
+a CSA. However, it also includes employment numbers from the MSA aggregates used by QCEW.
+
+This file can be used to compare county with MSA records, and see how much data is suppressed.
+
+“LifeSci_Summary_byInd.xlsx”
+
+Like the previous file, this one includes the QCEW MSA aggregates, but breaks out by 6-digit life sciences 
+industries.
+
+This file can be used to compare county with MSA records, and see how much data is suppressed.
+
+“(Wrong Years) pivot_CSA_comparison_LifeSci”
+
+This was a pivot table analysis I was working on in Excel. However, I realized that I had made a coding 
+error (this data includes Boston 2021 info, but not SF or NYC 2021 info). Also, something which is a big 
+problem – I forgot to filter by just 6-digit industries, so this data double counts (adding together the 4-
+digit NAICS with the underlying 6-digit).
+
+The reason I include it is that I think these are good examples of Pivot Table analyses we can do with the 
+data.
+
+In particular, Excel has a very cool mapping feature, which you can see in the “Boston CSA Maps” sheet. 
+However, it was pretty tedious to get these maps going, especially after I realized I would need to re-do 
+everything after the coding error. So I decided to do most of the analysis in R, but there is a lot you can 
+do in Excel!
+
+[See email below for description of other files]
+
+
+Let me know if you have any questions!
+
+Best,
+
+Sam
+
+From: Samuel Neylon  
+Sent: Friday, July 29, 2022 6:26 PM 
+To: Jones, Eileen <ejones1@gc.cuny.edu>; Zheng, You <yzheng3@gc.cuny.edu> 
+Subject: QCEW Data
+
+Hi all,
+
+So in the interest of making the QCEW data more accessible, I took a large chunk of the data we need, 
+added some variables, and placed them on sharepoint: 
+
+https://intranet.gc.cuny.edu/centers_institutes/cur/NYCLMIS/Upper%20West%20Strategies/Research/
+QCEW_reports/CSA_comparison
+
+I will continue working on what we talked about (comparing life sciences employment in counties), and I 
+will also work on a trimmed-down version of the data, with only columns that we need (per You’s Data 
+Sources document), but I wanted to provide a large amount of the raw data in case you need to access 
+it.
+
+Files
+
+“CSA_comparison.xlsx” – This is a big file with all industries. I wanted to provide this, so that you had 
+access to as much data as possible, if you need.
+
+“CSA_comparison_LifeSci.xlsx” – This is the same geographic areas, but filtered for just the life sciences 
+industries (which were not in gray) from Eileen’s list.
+
+Years
+
+I decided to include the years 2017-2021 (these are annual averages, so the 2022 data is not available 
+yet) because these all have the same NAICS codes.
+
+Geography
+
+I took a big geographic cut of the data – the CSA’s (combined statistical areas) which are made up of 
+multiple Metropolitan and Micropolitan Statistical Areas, in order to get a range of counties around the 
+hubs we are looking at.
+
+I included two geographic units from the QCEW data: counties, and MSA’s (unfortunately, the QCEW 
+CSA aggregates don’t break out by industry).
+
+There are 4 columns in the data (AZ-BC) which allow you to compare geographic regions different ways. 
+You can either look directly at the MSA industry data (the “area_fips” will start with a “C”), or you can 
+look at counties within a CSA or MSA, by filtering or using a pivot table on columns AZ-BC, which have 
+the codes and names for different MSA’s and CSA’s. If you wanted to compare an MSA with its 
+surrounding counties, you could filter the QCEW_CSA_TITLE column for the CSA you want, and the 
+QCEW_MSA column will have the different MSA’s which are within that CSA.
+
+I think I am going to continue my analysis comparing the counties in CSA’s, MSA’s, etc. in R, but we could 
+also do it using Pivot Tables in Excel.
+
+Industries
+
+I created the smaller file by simply filtering for the industries that Eileen put in white on her list. This is 
+nice because it makes for a smaller dataset. However, I could also add a column to the larger dataset, 
+marking the Life Sciences industries, so that we could filter for them on Excel, instead. I could include 
+multiple columns for different definitions of life sciences (one for the industries in white, one for those 
+in gray).
+
+The QCEW presents one row for each NAICS level within an industry. If you want to analyze smaller 
+industries within a NAICS, you can use columns D-G to filter and summarize industries different ways.
+
+Next Steps
+
+1.	If you have specific industries or counties you would like to add, I can add them into the next 
+analysis.
+2.	In You’s document she said we should use: “annual_avg_estabs_count, annual_avg_emplvl, 
+total_annual_wages, and avg_annual_pay*” – if this is correct, I can create a version of this 
+dataset with far fewer columns.
+
+Let me know if you have any questions!
+
+Best,
+
+Sam
+
+
+
+

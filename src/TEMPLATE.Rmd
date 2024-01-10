@@ -1,0 +1,409 @@
+---
+title: "QCEW Template"
+author: "Sam Neylon"
+date: '2022-07-29'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+library(fs)
+library(stringr)
+
+```
+
+# Notes
+
+Please create a new .Rmd file for each data pull, by saving this template with a name similar to the excel files which are exported. This will allow us to keep track of how each file was created, even though it will create a lot of markdown files.
+
+## Updates
+
+### (07-31-2020)
+
+I made some changes in the newer file "CSA_comparison.Rmd" which could be useful here. I need to compare the two and add the changes to this document.
+
+*FOLLOW UP* - I think the change I made was to the MSA variable name (I changed it in the .csv so it wouldn't have spaces) in section Counties Template > Filter Counties > Using geo_code 
+
+# Functions
+
+## get_dir
+
+```{r eval=T}
+
+# Assemble File Names
+  # I have commented out a thing which saved each filepath file outside the function, but it may be useful for future projects.
+
+get_dir <- function(fips){
+  df <- dir_ls(path = "D:/QCEW/by_area/2007_2021", regexp = fips, recurse = TRUE)
+  #assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+# read_csv using file names
+
+county_map <- function(fs_list){
+  map_df(fs_list, read_csv, col_types = cols(
+  area_fips = col_character(),
+  own_code = col_double(),
+  industry_code = col_character(),
+  agglvl_code = col_double(),
+  size_code = col_double(),
+  year = col_double(),
+  qtr = col_character(),
+  disclosure_code = col_character(),
+  area_title = col_character(),
+  own_title = col_character(),
+  industry_title = col_character(),
+  agglvl_title = col_character(),
+  size_title = col_character(),
+  annual_avg_estabs_count = col_double(),
+  annual_avg_emplvl = col_double(),
+  total_annual_wages = col_double(),
+  taxable_annual_wages = col_double(),
+  annual_contributions = col_double(),
+  annual_avg_wkly_wage = col_double(),
+  avg_annual_pay = col_double(),
+  lq_disclosure_code = col_character(),
+  lq_annual_avg_estabs_count = col_double(),
+  lq_annual_avg_emplvl = col_double(),
+  lq_total_annual_wages = col_double(),
+  lq_taxable_annual_wages = col_double(),
+  lq_annual_contributions = col_double(),
+  lq_annual_avg_wkly_wage = col_double(),
+  lq_avg_annual_pay = col_double(),
+  oty_disclosure_code = col_character(),
+  oty_annual_avg_estabs_count_chg = col_double(),
+  oty_annual_avg_estabs_count_pct_chg = col_double(),
+  oty_annual_avg_emplvl_chg = col_double(),
+  oty_annual_avg_emplvl_pct_chg = col_double(),
+  oty_total_annual_wages_chg = col_double(),
+  oty_total_annual_wages_pct_chg = col_double(),
+  oty_taxable_annual_wages_chg = col_double(),
+  oty_taxable_annual_wages_pct_chg = col_double(),
+  oty_annual_contributions_chg = col_double(),
+  oty_annual_contributions_pct_chg = col_double(),
+  oty_annual_avg_wkly_wage_chg = col_double(),
+  oty_annual_avg_wkly_wage_pct_chg = col_double(),
+  oty_avg_annual_pay_chg = col_double(),
+  oty_avg_annual_pay_pct_chg = col_double())
+)
+}
+
+```
+
+## get_dir_year
+
+```{r eval=T}
+
+get_dir_year <- function(fips, year_string){
+  df <- dir_ls(path = year_string, regexp = fips, recurse = TRUE)
+  #assign(paste("c",fips, sep="_"), df, envir = .GlobalEnv)
+}
+
+```
+
+## All years Function
+
+This function will get data for all the years in the directory "D:/QCEW/by_area/2007_2021" (back to 2007)
+
+```{r eval=T}
+
+# By FIPS
+
+qcew_FIPS <- function(fips_list){
+  # Get file paths using get_dir(), mapped over list of FIPS
+  fips_dirs <- map(fips_list, get_dir)
+  # Turn filepaths into dataframes, mapping county_map over list of file paths, which takes file paths and feeds them into read_csv
+  county_df <- map(fips_dirs, county_map)
+  # Do a simple bind_rows to turn your list (a list of dataframes) into one large data frame
+  df <- map_dfr(county_df, bind_rows)
+}
+
+
+```
+
+## By Year Function
+
+This is the one we will use the most. It takes a list of years and list of FIPS and turns them into a dataframe.
+
+```{r eval=T}
+
+qcew_FIPS_year <- function(fips_list, qcew_year){
+  k <- str_c("D:/QCEW/by_area/2007_2021/", qcew_year, "_annual_by_area/")
+  # Get file paths using get_dir(), mapped over list of FIPS
+  fips_dirs <- map(fips_list, ~ get_dir_year(.x, year_string = k))
+  # Turn filepaths into dataframes, mapping county_map over list of file paths, which takes file paths and feeds them into read_csv
+  county_df <- map(fips_dirs, county_map)
+  # Do a simple bind_rows to turn your list (a list of dataframes) into one large data frame
+  df <- map_dfr(county_df, bind_rows)
+}
+
+```
+
+## Into List Function
+
+This function turns a column of FIPS into a list.
+
+```{r eval=T}
+
+into_fipsList <- function(code_list){
+  # Select FIPS Column
+  df <- code_list %>% select(fips)
+  # Turn this vector into a list with a separate item for each row.
+  list_data <- split(df,seq(nrow(df)))  
+}
+
+
+```
+
+## Cleaning Function
+
+```{r eval=T}
+
+NAICS_clean <- function(df){
+df <- df %>% 
+  mutate(NAICS_lvl = if_else((str_length(industry_code)==2), 2, 
+                                     if_else((str_length(industry_code)==3), 3, 
+                                             if_else((str_length(industry_code)==4), 4, 
+                                                     if_else((str_length(industry_code)==5), 5, 6))))) %>% 
+  mutate(NAICS_lvl = ifelse((str_detect(industry_code, "-")), 2, NAICS_lvl),
+         dash_code = ifelse((str_detect(industry_code, "-")), 1, 0))
+
+# NAICS substring
+
+df <- df %>% mutate(NAICS_1 = str_sub(industry_code, 1, 1),
+                              NAICS_2 = str_sub(industry_code, 1, 2),
+                              NAICS_3 = ifelse(NAICS_lvl>=3, str_sub(industry_code, 1, 3), NA_character_)) %>% 
+  mutate(NAICS_2 = ifelse(dash_code==1, industry_code, NAICS_2),
+         NAICS_3 = ifelse(dash_code==1, NA_character_, NAICS_3))
+
+df <- df %>% relocate(c("NAICS_lvl","NAICS_1","NAICS_2","NAICS_3"), .after = industry_code)
+df <- df %>% 
+  mutate(NAICS_17 = ifelse(year >= 2017, industry_code, NA_character_),
+         NAICS_12 = ifelse(between(year, 2012, 2016), industry_code, NA_character_),
+         NAICS_07 = ifelse(between(year, 2007, 2011), industry_code, NA_character_)) 
+}
+
+```
+
+# Data Setup
+
+## FIPS List
+
+```{r eval=T}
+
+all_fips <- read_csv(here("data/FIPS_all_counties.csv"))
+
+all_fips <- all_fips %>% mutate(fips = ifelse(str_length(FIPS)==4, str_c("0",FIPS), FIPS))
+
+```
+
+## 2017 NAICS
+
+```{r eval=T}
+
+NAICS_titles <- read_csv(here("data/naics_2017.csv"))
+
+# NAICS_titles <- NAICS_titles %>% select(industry_code, industry_title)
+
+```
+
+# Counties Template
+
+Filter a list of counties by a larger geographic unit (i.e. MSA), and pull data for that list.
+
+## Year/Geo Setup Block
+
+```{r eval = F}
+
+# Geographic Unit
+
+geo_code <- c("MSA or other Geographic CODE HERE")
+
+# 1 year
+
+years_list <- list("2020")
+
+# Multiple Years
+
+# years_list <- as.list(seq(2007, 2021, by = 1))
+
+```
+
+## Filter Counties
+
+### Using geo_code
+
+IMPORTANT NOTE: MUST CHANGE THE NAME OF FILTER VARIABLE IF IT ISN'T MSA
+
+```{r eval=F}
+
+# QCEW MSA Code
+
+df_fips <- all_fips %>% filter(QCEW_MSA_Code == paste(geo_code))
+
+df_fips <- into_fipsList(df_fips)
+
+```
+
+### Using list of FIPS
+
+This is if you want to put a custom list of FIPS into a csv, import it, and use that.
+
+```{r eval=F}
+
+df_fips <- read_csv(here("data/NAME OF CUSTOM FIPS CSV"))
+
+df_fips <- into_fipsList(df_fips)
+
+```
+
+## Import and Clean
+
+```{r eval=F}
+
+# Import
+
+df_1 <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = df_fips))
+
+df_1 <- map_dfr(df_1, bind_rows)
+
+rm(df_fips)
+
+# Clean
+
+df_1 <- NAICS_clean(df_1)
+
+```
+
+## Sum by Geography
+
+The code above gives you data by county. This code summarizes all the counties, giving you a total employment for the whole geographic area (or list of FIPS). This is equivalent to the numbers you get by filtering for a QCEW MSA code (e.g. C4186 San Francisco-Oakland-Hayward).
+
+This code summarizes by own_code==5 (private industry), otherwise all employment and establishments in government will be added to the private industry counts. You may be able to group by "own_code" to get a list of industry by own code sums.
+
+```{r eval=F}
+
+df_1_sum <- df_1 %>% 
+  filter(own_code == 5) %>% 
+  group_by(industry_code) %>% 
+  summarise(ind_ests = sum(annual_avg_estabs_count),
+            ind_emp = sum(annual_avg_emplvl))
+df_1_sum <- df_1_sum %>% left_join(NAICS_titles, by = "industry_code") %>% 
+  relocate(industry_title)
+
+```
+
+## Export
+
+```{r eval=F}
+
+openxlsx::write.xlsx(df_1_sum, here("output/FILE NAME HERE.xlsx"))
+
+```
+
+
+# Single Geography Template
+
+This template allows you to get data for just one QCEW geographic unit, such as MSA (e.g. C4186 San Francisco-Oakland-Hayward) or State.
+
+## Year/Geo Setup Block
+
+```{r eval = F}
+
+# Geographic Unit
+
+df_fips <- list("MSA or other Geographic CODE HERE")
+
+# 1 year
+
+years_list <- list("2020")
+
+# Multiple Years
+
+# years_list <- as.list(seq(2007, 2021, by = 1))
+
+```
+
+## Import and Clean
+
+```{r eval=F}
+
+# Import
+
+df_1 <- map(years_list, ~ qcew_FIPS_year(qcew_year = .x, fips_list = df_fips))
+
+df_1 <- map_dfr(df_1, bind_rows)
+
+rm(df_fips)
+
+# Clean
+
+df_1 <- NAICS_clean(df_1)
+
+```
+
+## "Sum"
+
+Because this is one geography, you don't really need to sum the industries. However, this creates a dataframe which can easily be joined to the County sum data and compared (see "Merge" section below).
+
+```{r eval=F}
+
+df_1_sum <- df_1 %>% 
+  filter(own_code == 5,
+         NAICS_lvl == 6) %>% 
+  group_by(industry_code) %>% 
+  summarise(ind_ests = sum(annual_avg_estabs_count),
+            ind_emp = sum(annual_avg_emplvl))
+df_1_sum <- df_1_sum %>% left_join(NAICS_titles, by = "industry_code") %>% 
+  relocate(industry_title)
+
+```
+
+## Export
+
+```{r eval=F}
+
+openxlsx::write.xlsx(df_1, here("output/FILE NAME HERE.xlsx"))
+
+```
+
+# Merge Example
+
+This example takes data based on a QCEW MSA code (SF_MSA_sum) and joins it with one based on a list of county FIPS within that MSA (SF_sum). This creates two ccolumns for industry establishments and employment for the first data frame (example below has MSA first), and two for the second (list of counties, referred to with "c_").
+
+Since this merge loses the NAICS level codes I added in the cleaning stage, the code below adds in 1-5 digit NAICS codes.
+
+The code below is designed for one year of data (or a single time frame).
+
+```{r eval=F}
+
+SF_comp <- full_join(SF_MSA_sum, SF_sum, by = "industry_code") %>% 
+  mutate(MSA_ests = ind_ests.x,
+         MSA_emp = ind_emp.x,
+         C_ests = ind_ests.y,
+         C_emp = ind_emp.y) %>% 
+  select(industry_title.x, industry_code, MSA_ests, MSA_emp, C_ests, C_emp) %>% 
+  mutate(MSA_C_ests = MSA_ests - C_ests,
+         MSA_C_emp = MSA_emp - C_emp,
+         NAICS_1 = str_sub(industry_code, 1, 1),
+         NAICS_2 = str_sub(industry_code, 1, 2),
+         NAICS_3 = str_sub(industry_code, 1, 3),
+         NAICS_4 = str_sub(industry_code, 1, 4),
+         NAICS_5 = str_sub(industry_code, 1, 5))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
