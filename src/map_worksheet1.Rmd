@@ -16,7 +16,7 @@ library(ggmap)
 
 # Google Map API
 
-  # register_google(key = "AIzaSyDya2KamDNbVtK6dGiB3yWIazUIrf5dj5I")
+  # register_google(key = DELETED)
 
 ```
 
